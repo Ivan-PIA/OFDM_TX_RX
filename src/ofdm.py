@@ -529,7 +529,7 @@ def interpolatin_pilot(pilot_carrier, rx_sync,GB_len):
     #Hls = rx[0][index_pilot]
        
     rx_pilot = np.array([np.take(row, pilot_carrier) for row in rx])
-    print("pilot int1",pilot_carrier)
+    #print("pilot int1",pilot_carrier)
     count_ofdm = len(rx_sync)
     num_carrier = len(rx_sync[0])
     
@@ -593,13 +593,13 @@ def interpol(fft_rx1, num_carrier, GB_len, pilot_carrier):
 
     data_pilot = np.zeros(0)
     data_carrier1 = activ_carriers(num_carrier, GB_len, pilot_carrier, pilots = True)
-    print("00000",data_carrier1)
+    #print("00000",data_carrier1)
     for i in range(len(data_carrier1)):
         if data_carrier1[i] > num_carrier//2:
             data_carrier1[i] -=1
     data_carrier1 -= GB_len//2
 
-    print("1111",data_carrier1 , len(data_carrier1))
+    #print("1111",data_carrier1 , len(data_carrier1))
 
     for i in range(len(ofdm1)):
             #print(i)
@@ -627,7 +627,7 @@ def get_inform_slot(rx_sig, Nfft, N_pilot, GB_len,mode , cp):
             
     """
     slot_ofdm = rx_sig
-    print(len(slot_ofdm))
+
 
     pilot_carrier = generate_pilot_carriers(Nfft, GB_len, N_pilot)
     data_not_pilot = activ_carriers(Nfft, GB_len, pilot_carrier, pilots = False)
@@ -642,6 +642,7 @@ def get_inform_slot(rx_sig, Nfft, N_pilot, GB_len,mode , cp):
 
     qpsk = del_pilot(interpolate, Nfft, GB_len, data_not_pilot1)
     plot_QAM(qpsk)
+    print("EVM = ",EVM_qpsk(qpsk), " dB")
     bits_with_prefix = DeQPSK(qpsk)
     
     number_slot = bits_with_prefix[:8]
@@ -679,11 +680,11 @@ def decode_slots(rx_sig, Nfft, cp, GB_len, N_slots,N_pilot):
     j = 0
     for i in range(N_slots):
         num_slot, bits_with_prefix = get_inform_slot(rx_sig[(800) * i :((800)*(i+1))+800], Nfft, N_pilot, GB_len, 1,cp)
-        print(num_slot)
+
         num_slot_slot[num_slot] = bits_with_prefix
 
     sorted_keys = sorted(num_slot_slot.keys())
-    print(len(num_slot_slot))
+
     sorted_slots = np.zeros(0)
     for key in sorted_keys:
         sorted_slots = np.concatenate([sorted_slots, num_slot_slot[key]])
