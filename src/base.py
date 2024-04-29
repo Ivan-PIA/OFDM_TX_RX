@@ -82,3 +82,33 @@ def converted_file_to_bits(path_file):
     binary_array = [int(bit) for binary_number in binary_numbers for bit in binary_number]
     
     return np.asarray(binary_array)
+
+
+def EVM_qpsk(qpsk):
+    """
+        `qpsk` - символы qpsk
+        не демодулирует только считает ошибку
+    """
+    Co = np.array([1+1j, 1-1j, -1+1j, -1-1j])
+
+    evm_sum = 0
+
+    for i in range(len(qpsk)):
+        t = 0
+        temp = []
+        for j in range(len(Co)):
+            
+            
+            co2 = Co[j].real**2 + Co[j].imag**2
+
+            evn2 =  (Co[j].real - qpsk[i].real)**2 + (Co[j].imag - qpsk[i].imag)**2
+
+            evm = np.sqrt(evn2/co2)
+            temp.append(evm)
+            t = min(temp)
+            
+        evm_sum += t
+
+    evm_db = np.abs(20 * np.log10(evm_sum/len(qpsk)))
+
+    return evm_db
