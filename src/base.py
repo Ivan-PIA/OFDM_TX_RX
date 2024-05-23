@@ -105,7 +105,7 @@ def EVM_qpsk(qpsk):
 
             evm = np.sqrt(evn2/co2)
             temp.append(evm)
-            t = min(temp)
+        t = min(temp)
             
         evm_sum += t
 
