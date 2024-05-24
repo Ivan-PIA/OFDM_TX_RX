@@ -78,9 +78,10 @@ def corr_pss_time(rx, N_fft):
 
     o = np.abs(np.convolve(np.flip(np.conjugate(pss_ifft)), rx, mode = "full"))
 
-    plt.figure()
-    plt.plot(abs(o))
-    plt.show()
+    #plt.figure()
+    #plt.title("Correlation PSS")
+    #plt.plot(abs(o))
+    #plt.show()
     indexes_max  =  o / np.max(o)  
     indexes_max = [i for i in range(len(indexes_max)) if indexes_max[i] > 0.90]    
 
@@ -160,7 +161,6 @@ def indexs_of_CP_after_PSS(rx, cp, fft_len):
     #plt.plot(abs(corr))
     #plt.show()
     return arr_index
-
 
 def indiv_symbols(ofdm, N_fft, CP_len):
     cp = CP_len
@@ -390,9 +390,14 @@ def modulation(N_fft, CP_len, GB_len, QAM_sym, N_pilot, amplitude_all=2**14, amp
         arr[fft_len//2 + 1: fft_len//2 + 32] = pss[31:]
         
         symbols = np.insert(symbols, 0, arr, axis=0)
-        
-        for i in range(6, symbols.shape[0], 6):
-            symbols = np.insert(symbols, i, arr, axis=0)
+
+        len_sym = len(symbols)
+        pss = 6
+        while pss < len_sym:
+            symbols = np.insert(symbols, pss, arr, axis=0)
+            len_sym+=1
+            pss+=6
+            
 
         return symbols
 
@@ -418,7 +423,7 @@ def modulation(N_fft, CP_len, GB_len, QAM_sym, N_pilot, amplitude_all=2**14, amp
     pilot_carrier = generate_pilot_carriers(N_fft, GB_len, N_pilot)
     activ = activ_carriers(N_fft, GB_len, pilot_carrier, pilots = False)
 
-    len_prefix_max_slots = int(np.log2(256))
+    len_prefix_max_slots = int(np.log2(1024))
 
     # Нормирование амплитуд
     am_max = np.max([amplitude_data, amplitude_pilots, amplitude_pss])
@@ -460,14 +465,14 @@ def modulation(N_fft, CP_len, GB_len, QAM_sym, N_pilot, amplitude_all=2**14, amp
     
     slots = np.concatenate(slots, axis=0)
     
-    print("len slots",len(slot))
+    #print("len slots",len(slot))
 
     slots = slots * amplitude_data
     arr_symols = distrib_subcarriers(slots, activ, fft_len, amplitude_pilots)
     arr_symols = add_pss(fft_len, arr_symols, amplitude_pss)
     
     arr_symols = np.fft.fftshift(arr_symols, axes=1)
-
+    print("count pss",len(arr_symols), len(arr_symols[0]))
     # IFFT
     ifft = np.zeros((np.shape(arr_symols)[0], fft_len), dtype=complex)
     for i in range(len(arr_symols)):
@@ -641,8 +646,8 @@ def get_inform_slot(rx_sig, Nfft, N_pilot, GB_len,mode , cp):
     interpolate = interpol(fft_rx, Nfft, GB_len,pilot_carrier1)
 
     qpsk = del_pilot(interpolate, Nfft, GB_len, data_not_pilot1)
-    plot_QAM(qpsk)
-    print("EVM = ",EVM_qpsk(qpsk), " dB")
+    #plot_QAM(qpsk)
+    #print("EVM = ",EVM_qpsk(qpsk), " dB")
     bits_with_prefix = DeQPSK(qpsk)
     
     number_slot = bits_with_prefix[:8]
