@@ -53,6 +53,7 @@ def resource_grid(data, count_frames, len_frame, Nfft, cp ):
     data2[half_nfft:Nfft, :] = temp
 
     plt.figure()
+    plt.title("OFDM frame on RX")
     plt.imshow(abs(data2), cmap='jet',interpolation='nearest', aspect='auto')
     plt.colorbar()
     plt.show()
@@ -83,6 +84,7 @@ def resource_grid_3(data, Nfft, cp):
     data2[half_nfft:Nfft, :] = temp
 
     plt.figure()
+    plt.title("OFDM frame on TX")
     plt.imshow(abs(data2), cmap='jet',interpolation='nearest', aspect='auto')
     plt.colorbar()
     plt.show()
