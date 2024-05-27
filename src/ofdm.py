@@ -4,6 +4,7 @@ from src.base import *
 from src.modular import *
 from src.demodular import *
 from src.plots import *
+from src.harq import *
 
 
 def pss_time(fft_len):
@@ -20,7 +21,6 @@ def pss_time(fft_len):
 
     return pss_ifft
 
-
 def calculate_correlation(fft_len, matrix_name, m):
     """
     Calculates correlation between pss and matrix_name with filtering and delay.
@@ -35,7 +35,7 @@ def calculate_correlation(fft_len, matrix_name, m):
     """
     pss = pss_time(fft_len)
     L = len(pss)
-    print("pss",L)
+    #print("pss",L)
     # Flipped and complex conjugated reference signal
     corr_coef = np.flip(np.conjugate(pss))
 
@@ -130,12 +130,13 @@ def indexs_of_CP_after_PSS(rx, cp, fft_len):
     """
     corr = [] # Массив корреляции 
 
-    for i in range(len(rx) - fft_len):
+    for i in range(len(rx) - fft_len): # узнать почему - ффт
         o = norm_corr((rx[:cp]), rx[fft_len:fft_len+cp])
 
         corr.append(abs(o))
         rx = np.roll(rx, -1)
-
+    #print("00000000000000000000000000000000000000000000000000000")
+    #print(corr)
     corr = np.array(corr) / np.max(corr) # Нормирование
     max_len_cycle = len(corr)
     # if corr[0] > 0.97:
@@ -169,6 +170,7 @@ def indiv_symbols(ofdm, N_fft, CP_len):
     
     index = indexs_of_CP_after_PSS(ofdm, cp, N_fft)
     index = index[:5]
+    #print(index)
     symbols = []
     for ind in index:
         symbols.append(ofdm[ind+cp : ind+all_sym])
@@ -403,7 +405,8 @@ def modulation(N_fft, CP_len, GB_len, QAM_sym, N_pilot, amplitude_all=2**14, amp
 
     def add_CRC(slot_pre_post):
 
-        data = QPSK(slot_pre_post, amplitude=1) # Демодуляция по QPSK
+        data = dem_qpsk(slot_pre_post) # Демодуляция по QPSK
+        #print(data)
         data = list(data)
         G = [1,0,1,0,0,1,1,1,0,1,0,0,0,1,0,1,1] # полином для вычисления crc
 
@@ -443,6 +446,7 @@ def modulation(N_fft, CP_len, GB_len, QAM_sym, N_pilot, amplitude_all=2**14, amp
         
         slot_pre_post  = np.concatenate((slot_number, total_slots, useful_bits, slot))
         # CRC
+        #print(slot_pre_post)
         crc = QPSK(add_CRC(slot_pre_post), amplitude=1) 
         
         slot_pre_post  = np.concatenate((slot_pre_post, crc))
@@ -472,7 +476,7 @@ def modulation(N_fft, CP_len, GB_len, QAM_sym, N_pilot, amplitude_all=2**14, amp
     arr_symols = add_pss(fft_len, arr_symols, amplitude_pss)
     
     arr_symols = np.fft.fftshift(arr_symols, axes=1)
-    print("count pss",len(arr_symols), len(arr_symols[0]))
+    #print("count pss",len(arr_symols), len(arr_symols[0]))
     # IFFT
     ifft = np.zeros((np.shape(arr_symols)[0], fft_len), dtype=complex)
     for i in range(len(arr_symols)):
@@ -492,10 +496,11 @@ def modulation(N_fft, CP_len, GB_len, QAM_sym, N_pilot, amplitude_all=2**14, amp
 
 def del_pss_in_frame(frame, Nfft, cp):
     frame = frame.reshape(len(frame)//(Nfft+cp), (Nfft+cp))
-    indices_to_remove = [5, 11, 17, 23, 29,35]
-    frame = [row for idx, row in enumerate(frame) if idx not in indices_to_remove]
+    #indices_to_remove = [5, 11, 17, 23, 29,35]
+    #frame = [row for idx, row in enumerate(frame) if idx not in indices_to_remove]
+    new_matrix = np.delete(frame, np.arange(5, len(frame), 6), axis=0)
 
-    return np.asarray(frame).flatten()
+    return np.asarray(new_matrix).flatten()
 
 
 def del_pilot(fft_rx_inter,num_carrier,GB_len, data_not_pilot):
@@ -653,7 +658,7 @@ def get_inform_slot(rx_sig, Nfft, N_pilot, GB_len,mode , cp):
     number_slot = bits_with_prefix[:8]
     count_slot = bits_with_prefix[8:16]
     good_inf = bits_with_prefix[16:24]
-
+    print(count_slot)
     
     number_slot = converted_bits(number_slot)
     count_slot = converted_bits(count_slot)
@@ -700,3 +705,111 @@ def decode_slots(rx_sig, Nfft, cp, GB_len, N_slots,N_pilot):
     slot_matrix = slot_matrix[:, 24:(len_slot-16)]
     slots = slot_matrix.flatten()
     return slots
+
+
+broken_slot = []
+
+def get_inform_slot_bit10(rx_sig, Nfft, N_pilot, GB_len,mode , cp):
+    """
+        Получение информации из слотов
+
+        Параметры
+        ---------
+            `rx_sig`  - два слота  (для корректной работы символьной синхронизации)
+            `Nfft`    - кол-во поднесущих
+            `N_pilot` - кол-во пилотов
+            `GB_len`  - защитный интервал
+            `mode`    - режим работы 
+                mode = 1 :  возвращает номер слота и битовую информацию в этом слоте (используется для формирования исходной битовой последовательности)
+                mode = 2 :  возвращает кол-во слотов (сколько слотов занимает сообщение)
+            `cp`      - циклический префикс 
+            
+    """
+    slot_ofdm = rx_sig
+
+
+    pilot_carrier = generate_pilot_carriers(Nfft, GB_len, N_pilot)
+    data_not_pilot = activ_carriers(Nfft, GB_len, pilot_carrier, pilots = False)
+    rx_synс = indiv_symbols(slot_ofdm, Nfft, cp)
+
+    pilot_carrier1 = pilot_carrier.copy()
+    data_not_pilot1 = data_not_pilot.copy()
+
+    fft_rx = fft(Nfft, GB_len, rx_synс, pilot_carrier1)
+
+    interpolate = interpol(fft_rx, Nfft, GB_len,pilot_carrier1)
+
+    qpsk = del_pilot(interpolate, Nfft, GB_len, data_not_pilot1)
+    #plot_QAM(qpsk)
+    #print("EVM = ",EVM_qpsk(qpsk), " dB")
+    bits_with_prefix = DeQPSK(qpsk)
+    
+    number_slot = bits_with_prefix[:10]
+    count_slot = bits_with_prefix[10:20]
+    good_inf = bits_with_prefix[20:28]
+    #crc = bits_with_prefix[-16:]
+
+    #print(number_slot)
+    #print(count_slot)
+    
+    number_slot = converted_bits(number_slot)
+    count_slot = converted_bits(count_slot)
+    good_inf = converted_bits(good_inf)
+    
+    bit_for_crc = bits_with_prefix.copy()
+    chek_crc =  CRC_RX(bit_for_crc)
+    #print(chek_crc)
+    broken_slot.append(ACK(chek_crc, number_slot))
+
+    if mode == 1:
+        return int(number_slot), bits_with_prefix
+    if mode == 2:
+        return int(count_slot)
+
+
+def decode_slots_bit10(rx_sig, Nfft, cp, GB_len, N_slots,N_pilot):
+    """
+        Получение информации из слотов
+
+        Параметры
+        ---------
+            `rx_sig`  - все слоты без pss (для корректной работы символьной синхронизации)
+            `Nfft`    - кол-во поднесущих
+            `cp`      - циклический префикс 
+            `GB_len`  - защитный интервал
+            `N_slots` - кол-во слотов
+            `N_pilot` - кол-во пилотов
+            
+        Возвращает: 
+            `slots`   - биты содержащие сообщение
+    """        
+    num_slot_slot = {}
+    j = 0
+    for i in range(N_slots):
+        num_slot, bits_with_prefix = get_inform_slot_bit10(rx_sig[(800) * i :((800)*(i+1))+800], Nfft, N_pilot, GB_len, 1,cp)
+
+        num_slot_slot[num_slot] = bits_with_prefix
+
+    sorted_keys = sorted(num_slot_slot.keys())
+
+    sorted_slots = np.zeros(0)
+    for key in sorted_keys:
+        sorted_slots = np.concatenate([sorted_slots, num_slot_slot[key]])
+    sorted_slots = sorted_slots.astype(int)
+
+    slot_matrix = sorted_slots.reshape(len(sorted_slots)//660, 660)
+    len_slot = 660
+    slot_matrix = slot_matrix[:, 28:(len_slot-16)]
+    slots = slot_matrix.flatten()
+
+    
+    ### придумать как лучше вынести в функцию
+    result = []  
+    #print(broken_slot, len(broken_slot))
+    for element in broken_slot:
+       
+        if element > 0 and element not in result:
+            result.append(element)
+    ###
+
+    return slots, result
