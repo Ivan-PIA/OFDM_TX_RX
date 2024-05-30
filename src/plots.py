@@ -37,6 +37,7 @@ def resource_grid(data, count_frames, len_frame, Nfft, cp ):
 
     """
     data1 = data[:(Nfft+cp)*len_frame*count_frames]
+    print(len(data1))
     half_nfft = Nfft//2
 
     # преобразуем в матрицу 

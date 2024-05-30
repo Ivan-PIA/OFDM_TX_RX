@@ -433,17 +433,17 @@ def modulation(N_fft, CP_len, GB_len, QAM_sym, N_pilot, amplitude_all=2**14, amp
     amplitude_data = amplitude_data / am_max
     amplitude_pilots = amplitude_pilots / am_max
     amplitude_pss = amplitude_pss / am_max
-        
-    symbols = split_into_slots(symbols, (-len_prefix_max_slots -4 +(len(activ))*5) -8)
-    
+    #print("pp",len(activ))
+
+    symbols = split_into_slots(symbols, (-len_prefix_max_slots +(len(activ))*5)  -13)
     # Делим массив символов на матрицу (в строке элеметнов = доступных поднесущих)
     slots = []
     for slot, i in zip(symbols, range(len(symbols))):
         # Заполнение префикса
         slot_number = QPSK(to_binary_fixed_length(i+1, len_prefix_max_slots), amplitude=1)
         total_slots = QPSK(to_binary_fixed_length(len(symbols), len_prefix_max_slots), amplitude=1)
-        useful_bits = QPSK(to_binary_fixed_length(len(slot)+8+4+8, 8), amplitude=1)
-        
+        useful_bits = QPSK(to_binary_fixed_length(len(slot)+23, 10), amplitude=1)
+
         slot_pre_post  = np.concatenate((slot_number, total_slots, useful_bits, slot))
         # CRC
         #print(slot_pre_post)
@@ -708,6 +708,7 @@ def decode_slots(rx_sig, Nfft, cp, GB_len, N_slots,N_pilot):
 
 
 broken_slot = []
+lenslot = 0
 
 def get_inform_slot_bit10(rx_sig, Nfft, N_pilot, GB_len,mode , cp):
     """
@@ -742,26 +743,30 @@ def get_inform_slot_bit10(rx_sig, Nfft, N_pilot, GB_len,mode , cp):
     qpsk = del_pilot(interpolate, Nfft, GB_len, data_not_pilot1)
     #plot_QAM(qpsk)
     #print("EVM = ",EVM_qpsk(qpsk), " dB")
+    #print(qpsk[-8:])
     bits_with_prefix = DeQPSK(qpsk)
-    
+
     number_slot = bits_with_prefix[:10]
     count_slot = bits_with_prefix[10:20]
-    good_inf = bits_with_prefix[20:28]
+    good_inf = bits_with_prefix[20:30]
     #crc = bits_with_prefix[-16:]
-
+    #print(good_inf)
     #print(number_slot)
     #print(count_slot)
     
     number_slot = converted_bits(number_slot)
     count_slot = converted_bits(count_slot)
     good_inf = converted_bits(good_inf)
-    
-    bit_for_crc = bits_with_prefix.copy()
-    chek_crc =  CRC_RX(bit_for_crc)
-    #print(chek_crc)
-    broken_slot.append(ACK(chek_crc, number_slot))
+
 
     if mode == 1:
+        global lenslot
+        lenslot += (good_inf*2) - (10+10+10+16)
+        bit_for_crc = bits_with_prefix.copy()
+        bit_for_crc = bit_for_crc[:good_inf*2]
+        chek_crc =  CRC_RX(bit_for_crc)
+
+        broken_slot.append(ACK(chek_crc, number_slot))
         return int(number_slot), bits_with_prefix
     if mode == 2:
         return int(count_slot)
@@ -796,12 +801,14 @@ def decode_slots_bit10(rx_sig, Nfft, cp, GB_len, N_slots,N_pilot):
     for key in sorted_keys:
         sorted_slots = np.concatenate([sorted_slots, num_slot_slot[key]])
     sorted_slots = sorted_slots.astype(int)
-
-    slot_matrix = sorted_slots.reshape(len(sorted_slots)//660, 660)
     len_slot = 660
-    slot_matrix = slot_matrix[:, 28:(len_slot-16)]
+    slot_matrix = sorted_slots.reshape(len(sorted_slots)//len_slot, len_slot)
+    
+    slot_matrix = slot_matrix[:, 30:(len_slot-16)]
+    #print("len slot",len(slot_matrix[0]))
     slots = slot_matrix.flatten()
 
+    slots = slots[:lenslot]
     
     ### придумать как лучше вынести в функцию
     result = []  

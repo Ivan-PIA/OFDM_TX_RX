@@ -43,7 +43,7 @@ def QPSK(bit_mass, amplitude = 1):
 		sample = sample * amplitude
 		return sample
 
-def QAM16(bit_mass):
+def QAM16(bit_mass, amplitude=1):
 	ampl = 2**15
 	if (len(bit_mass) % 4 != 0):
 		print("QAM16:\nError, check bit_mass length")
@@ -59,7 +59,7 @@ def QAM16(bit_mass):
 			imag = (1 - 2 * b4i1) * (2 - (1 - 2 * b4i3)) / np.sqrt(10)
 			sample.append(complex(real, imag))
 		sample = np.asarray(sample)
-		sample = sample * ampl
+		sample = sample * amplitude
 		return sample
 	
 def QAM64(bit_mass):
