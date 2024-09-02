@@ -33,6 +33,13 @@ def calculate_correlation(fft_len, matrix_name, m):
     Returns:
     A tuple containing the correlation and carrier frequency offset (CFO).
     """
+    # t = np.arange(0,len(matrix_name))
+    # t = t / 2.5e6
+    # mat1 = matrix_name * np.exp(-1j * 2 * np.pi * np.conjugate(5000)*  t)
+    # mat2 = matrix_name * np.exp(-1j * 2 * np.pi * np.conjugate(-5000)*  t)
+
+    # # matrix_name = matrix_name * np.exp(-1j * 2 * np.pi * np.conjugate(-5000)*  t)
+    fs = 2.5e6
     pss = pss_time(fft_len)
     L = len(pss)
     #print("pss",L)
@@ -41,11 +48,26 @@ def calculate_correlation(fft_len, matrix_name, m):
 
     # Filter reference signal sections
     partA = np.convolve(corr_coef[:L // 2], matrix_name, mode='full')
+
+    # plt.figure()
+    # plt.title("correlat partA")
+    # plt.plot(abs(partA))
+
     xDelayed = np.concatenate((np.zeros(L // 2), matrix_name[:-L // 2]))
+    # print("len mat :", len(matrix_name))
+    # print("debag len : ",len(matrix_name[:-L // 2]))
+    # print("debag len 2 : ",len(xDelayed))
     partB = np.convolve(corr_coef[L // 2:], xDelayed, mode='full')
+
+    # plt.figure()
+    # plt.title("correlat partB")
+    # plt.plot(abs(partB))
 
     # Calculate correlation and phase difference
     correlation = np.abs(partA + partB)
+    # plt.figure()
+    # plt.title("correlat ")
+    # plt.plot(abs(correlation))
     phaseDiff = partA * np.conj(partB)
 
     # Find maximum correlation and corresponding phase difference
@@ -54,11 +76,13 @@ def calculate_correlation(fft_len, matrix_name, m):
 
     # Calculate CFO
     CFO = np.angle(phaseDiff_max) / (np.pi * 1 / m)
+    # print("CFOOOOOOOO",CFO)
+    
     t = np.arange(0,len(matrix_name))
-    t = t / 1920000
-
-
-    data_offset = matrix_name * np.exp(-1j * 2 * np.pi * np.conjugate(CFO) * t)
+    t = t / fs
+    # print("debag",np.conjugate(CFO))
+    # print(np.exp(-1j * 2 * np.pi * np.conjugate(CFO)*  t))
+    data_offset = matrix_name * np.exp(-1j * 2 * np.pi * np.conjugate(CFO)*  t)
 
     return data_offset
 
@@ -77,16 +101,15 @@ def corr_pss_time(rx, N_fft):
     pss_ifft = np.fft.ifft(pss_ifft)
 
     o = np.abs(np.convolve(np.flip(np.conjugate(pss_ifft)), rx, mode = "full"))
-
-    #plt.figure()
-    #plt.title("Correlation PSS")
-    #plt.plot(abs(o))
-    #plt.show()
+    plt.figure()
+    plt.title("Correlation PSS")
+    plt.plot(abs(o))
+    plt.show()
     indexes_max  =  o / np.max(o)  
-    indexes_max = [i for i in range(len(indexes_max)) if indexes_max[i] > 0.90]    
+    indexes_max = [i for i in range(len(indexes_max)) if indexes_max[i] > 0.85]    
 
-    maxi = indexes_max[1]
-        
+    maxi = indexes_max[0]
+    print("INDEx  ",maxi)
     rx = rx[maxi:]
     return rx
 
@@ -132,11 +155,12 @@ def indexs_of_CP_after_PSS(rx, cp, fft_len):
 
     for i in range(len(rx) - fft_len): # узнать почему - ффт
         o = norm_corr((rx[:cp]), rx[fft_len:fft_len+cp])
-
+        #print("corr",o)
+        #o = np.convolve(rx[:cp], rx[fft_len:fft_len+cp])
         corr.append(abs(o))
         rx = np.roll(rx, -1)
     #print("00000000000000000000000000000000000000000000000000000")
-    #print(corr)
+    #
     corr = np.array(corr) / np.max(corr) # Нормирование
     max_len_cycle = len(corr)
     # if corr[0] > 0.97:
@@ -157,10 +181,12 @@ def indexs_of_CP_after_PSS(rx, cp, fft_len):
     
     ### DEBUG
     
-    # print(corr)
-    #plt.figure()
-    #plt.plot(abs(corr))
-    #plt.show()
+    #print(arr_index)
+    #print(corr)
+    if 0:
+        plt.figure()
+        plt.plot(abs(corr))
+        plt.show()
     return arr_index
 
 def indiv_symbols(ofdm, N_fft, CP_len):
@@ -741,7 +767,7 @@ def get_inform_slot_bit10(rx_sig, Nfft, N_pilot, GB_len,mode , cp):
     interpolate = interpol(fft_rx, Nfft, GB_len,pilot_carrier1)
 
     qpsk = del_pilot(interpolate, Nfft, GB_len, data_not_pilot1)
-    #plot_QAM(qpsk)
+    plot_QAM(qpsk)
     #print("EVM = ",EVM_qpsk(qpsk), " dB")
     #print(qpsk[-8:])
     bits_with_prefix = DeQPSK(qpsk)
